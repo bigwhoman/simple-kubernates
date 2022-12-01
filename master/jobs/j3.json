@@ -1,0 +1,7 @@
+{
+    "commands": [
+        "echo 111",
+        "echo 222",
+        "touch file3.txt"
+    ]
+}
