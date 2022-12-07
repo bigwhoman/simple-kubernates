@@ -18,13 +18,9 @@ const (
 	SERVER_TYPE = "tcp"
 )
 
-// type task struct {
-// 	state       string
-// 	description string
-// }
-
 var name = ""
-var status = ""
+var status = "not busy"
+var job_logs []string = make([]string, 0)
 
 func main() {
 	//establish connection
@@ -32,20 +28,14 @@ func main() {
 	defer file.Close()
 	defer connection.Close()
 	defer os.Remove("logs/" + name + "_logs.txt")
-
 	for {
 		mLen, err := connection.Read(buffer)
 		if err != nil {
 			Println("err : ", err.Error())
+			os.Remove("logs/" + name + "_logs.txt")
 			continue
 		}
 		go doJob(buffer, mLen, connection, file)
-		// if err != nil {
-		// 	Println("Error reading:", err.Error())
-		// 	// break
-		// 	connection.Write([]byte(err.Error()))
-		// 	continue
-		// }
 	}
 }
 
@@ -62,18 +52,22 @@ func doJob(buffer []byte, mLen int, connection net.Conn, file *os.File) {
 	} else if val, ok := jsonResult["ack"]; ok {
 		parseAcks(val, connection)
 	}
-	//  else {
-
-	// }
 }
 
 func parseAcks(val []string, connection net.Conn) {
+	// println(val)
 	ack := val[0]
 	sendVal := ""
 	if ack == "status" {
 		sendVal = status
 	} else if ack == "logs" {
-		// sendVal = strings.Join([:], ",")
+		for _, res := range job_logs {
+			sendVal += res + "\n"
+		}
+	} else if ack=="exit"{
+		// err := os.Remove("./logs/" + name + "_logs.txt")
+		// Println(err,err2)
+		os.Exit(0)
 	} else {
 		sendVal = "wrong operation!!!"
 	}
@@ -89,9 +83,11 @@ func parseCommands(val []string, connection net.Conn) []string {
 		if err != nil {
 			Println("Error reading:", err.Error())
 			logs = append(logs, "task : "+string(val[i])+", failed!, Error : "+string(err.Error()))
+			job_logs = append(job_logs, "task : "+string(val[i])+", failed!, Error : "+string(err.Error()))
 			continue
 		}
 		logs = append(logs, "task : "+string(val[i])+", done, Result : "+string(out))
+		job_logs = append(job_logs, "task : "+string(val[i])+", done, Result : "+string(out))
 	}
 	status = "not busy"
 	return logs
