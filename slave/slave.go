@@ -29,7 +29,7 @@ type SysInfo struct {
 }
 
 var m sync.Mutex
-var resource = "4"
+var resource = "2"
 
 const (
 	SERVER_HOST = "localhost"

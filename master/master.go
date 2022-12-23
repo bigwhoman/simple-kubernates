@@ -66,14 +66,14 @@ func connectToClients(connection net.Conn) {
 	getCommands()
 }
 
-func addToJobPool(job_id string, msg []byte) {
+func addToJobPool(job_id string, msg []byte, needed_resource int) {
 	for {
 		time.Sleep(2 * time.Second)
 		for _, v := range child_nodes {
 			v.Write([]byte(`{"ack":["status"]}`))
 		}
 		for child_name, v := range child_status {
-			if v == "not busy" {
+			if v == "not busy" && needed_resource <= child_resource[child_name] {
 				job_ids[job_id] = "running" + " by " + child_name
 				child_nodes[child_name].Write(msg)
 				return
@@ -231,7 +231,7 @@ func getCommands() {
 					}
 				}
 				if job_ids[jsonResult["job_id"][0]] == "pending" {
-					go addToJobPool(job_ids[jsonResult["job_id"][0]], buffer[:mLen])
+					go addToJobPool(job_ids[jsonResult["job_id"][0]], buffer[:mLen], needed_resource)
 				}
 			} else if val[0] == "list" {
 				empty += "--------------    jobs     --------------" + "\n"
