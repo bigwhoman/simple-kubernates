@@ -66,7 +66,7 @@ func connectToClients(connection net.Conn) {
 	getCommands()
 }
 
-func addToJobPool(job_id string, msg []byte, needed_resource int) {
+func addToJobPool(job_id string, msg []byte, needed_resource int, executable string) {
 	for {
 		time.Sleep(2 * time.Second)
 		for _, v := range child_nodes {
@@ -74,7 +74,40 @@ func addToJobPool(job_id string, msg []byte, needed_resource int) {
 		}
 		for child_name, v := range child_status {
 			if v == "not busy" && needed_resource <= child_resource[child_name] {
-				job_ids[job_id] = "running" + " by " + child_name
+				if executable != "" {
+					child_nodes[child_name].Write(msg)
+					m.Lock()
+					job_ids[job_id] = "running" + "   by   " + child_name
+					m.Unlock()
+					bufferFileName := make([]byte, 64)
+					bufferFileSize := make([]byte, 10)
+					time.Sleep(2 * time.Second)
+					client.Read(bufferFileSize)
+					client.Read(bufferFileName)
+					child_nodes[child_name].Write(bufferFileSize)
+					child_nodes[child_name].Write(bufferFileName)
+
+					filqeSize, _ := strconv.ParseInt(strings.Trim(string(bufferFileSize), ":"), 10, 64)
+
+					var receivedBytes int64
+
+					for {
+						if (filqeSize - receivedBytes) < 1024 {
+							client.Read(make([]byte, (receivedBytes+1024)-filqeSize))
+							child_nodes[child_name].Write(make([]byte, (receivedBytes+1024)-filqeSize))
+							Println("file transfered")
+							break
+						}
+						client.Read(msg)
+						child_nodes[child_name].Write(msg)
+						receivedBytes += 1024
+					}
+
+					break
+				}
+				m.Lock()
+				job_ids[job_id] = "running" + "   by   " + child_name
+				m.Unlock()
 				child_nodes[child_name].Write(msg)
 				return
 			}
@@ -231,7 +264,7 @@ func getCommands() {
 					}
 				}
 				if job_ids[jsonResult["job_id"][0]] == "pending" {
-					go addToJobPool(job_ids[jsonResult["job_id"][0]], buffer[:mLen], needed_resource)
+					go addToJobPool(job_ids[jsonResult["job_id"][0]], buffer[:mLen], needed_resource, executable)
 				}
 			} else if val[0] == "list" {
 				empty += "--------------    jobs     --------------" + "\n"
